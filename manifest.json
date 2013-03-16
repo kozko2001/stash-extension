@@ -1,0 +1,20 @@
+{
+  "manifest_version": 2,
+
+  "name": "Stash extension",
+  "description": "Stash notification extension to show how many pull requests you have",
+  "version": "1.0",
+
+  "browser_action": {
+    "default_icon": "icon.png"
+  },
+  "background": {
+		"page":    "background.html",
+		"permissions": [ 
+			"http://192.168.3.53:7990/*"
+		]
+  },
+  "permissions": [
+    "http://192.168.3.53:7990/*"
+  ]
+}
