@@ -1,7 +1,24 @@
 var background = {
+	config: {
+		interval: 1
+	},
+	loadConfig: function()
+	{
+		console.log("loadConfig");
+		if(background.timeout_token)
+			clearInterval(this.timeout_token);
+		
+		background.requests.config.base_url = localStorage["stash_config.base_url"];
+		background.config.interval = localStorage["stash_config.interval"];
+
+		return !!this.timeout_token;
+	},
 	startTimeout: function(f)
 	{
-		this.timeout_token = setInterval(f, 1000);
+		if(!this.config.interval || !this.requests.config.base_url)	
+			background.changeIcon("CONF");
+		else
+			this.timeout_token = setInterval(f, this.config.interval* 1000);
 	},
 	onTimeout: function()
 	{
@@ -17,9 +34,12 @@ var background = {
 		chrome.browserAction.setBadgeText({text: ""+text});
 	},
 	requests: {
+		config: {
+			base_url: null,
+		},
 		construct_url: function(path)
 		{
-			return "http://192.168.3.53:7990/" + path;
+			return background.requests.config.base_url + path;
 		},
 		pull_requests: function(state, cb)
 		{
@@ -51,5 +71,14 @@ var background = {
 	}
 };
 document.addEventListener('DOMContentLoaded', function () {
+	background.loadConfig();
 	background.startTimeout(background.onTimeout);
+	window.addEventListener('storage', function() { 
+		background.loadConfig();
+		background.startTimeout(background.onTimeout);
+	}, false);
+
+	chrome.browserAction.onClicked.addListener(function() {
+		chrome.tabs.create({'url': background.requests.config.base_url});
+	});
 });
