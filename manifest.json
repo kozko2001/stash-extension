@@ -16,6 +16,9 @@
 		]
   },
   "permissions": [
-    "http://192.168.3.53:7990/*"
-  ]
+    "<all_urls>",
+		"notifications"
+  ],
+	"web_accessible_resources": [ "icon_48.png" ]
+
 }

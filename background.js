@@ -1,30 +1,33 @@
 var background = {
-	config: {
-		interval: 1
-	},
 	loadConfig: function()
 	{
 		console.log("loadConfig");
 		if(background.timeout_token)
 			clearInterval(this.timeout_token);
 		
-		background.requests.config.base_url = localStorage["stash_config.base_url"];
-		background.config.interval = localStorage["stash_config.interval"];
+		model.config.base_url = localStorage["stash_config.base_url"];
+		model.config.interval = localStorage["stash_config.interval"];
 
 		return !!this.timeout_token;
 	},
 	startTimeout: function(f)
 	{
-		if(!this.config.interval || !this.requests.config.base_url)	
+		if(!model.config.interval || !model.config.base_url)	
 			background.changeIcon("CONF");
 		else
-			this.timeout_token = setInterval(f, this.config.interval* 1000);
+			this.timeout_token = setInterval(f, model.config.interval* 1000);
 	},
 	onTimeout: function()
 	{
 		background.requests.pull_requests("open", function(res){
 			if(res.ok)
+			{
 				background.changeIcon(res.result.size);
+				var change = model.open_pullrequest.size < res.result.size;
+				if(change)
+					background.createNotification("Number pull requests: " + res.result.size);
+				model.open_pullrequest = res.result;
+			}
 			else
 				background.changeIcon(res.error.error);
 		});
@@ -33,13 +36,18 @@ var background = {
 	{
 		chrome.browserAction.setBadgeText({text: ""+text});
 	},
+	createNotification: function(text) 
+	{
+		var not = webkitNotifications.createNotification("icon_48.png", "Stash extension", text);
+		not.show();
+		setTimeout(function() {
+			not.cancel();
+		},5000);
+	},
 	requests: {
-		config: {
-			base_url: null,
-		},
 		construct_url: function(path)
 		{
-			return background.requests.config.base_url + path;
+			return model.config.base_url + path;
 		},
 		pull_requests: function(state, cb)
 		{
@@ -79,6 +87,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	}, false);
 
 	chrome.browserAction.onClicked.addListener(function() {
-		chrome.tabs.create({'url': background.requests.config.base_url});
+		//chrome.tabs.create({'url': background.requests.config.base_url});
+		background.createNotification("TEST...");
 	});
 });
