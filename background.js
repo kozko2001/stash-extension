@@ -22,7 +22,7 @@ var background = {
 		background.requests.pull_requests("open", function(res){
 			if(res.ok)
 			{
-				background.changeIcon(res.result.size);
+				background.changeIcon(res.result.size + " /" + res.author_data.size);
 				var change = model.open_pullrequest.size < res.result.size;
 				if(change)
 					background.createNotification("Number pull requests: " + res.result.size);
@@ -51,18 +51,25 @@ var background = {
 		},
 		pull_requests: function(state, cb)
 		{
-			var url = this.construct_url("rest/inbox/latest/pull-requests")
+			var url = this.construct_url("rest/inbox/latest/pull-requests?role=reviewer")
 			var _this = background.requests;
 			$.getJSON(url, {start: 0, limit: 100, state: state, order: null, avatarSize: 64}, function (json){
-				cb(_this.response_ok(json));
+
+        var url = _this.construct_url("rest/inbox/latest/pull-requests?role=author")
+        $.getJSON(url, {start: 0, limit: 100, state: state, order: null, avatarSize: 64}, function (json2){
+          cb(_this.response_ok(json, json2));
+        }).error(function(xhr, status, error) {
+          cb(_this.response_error(status, xhr.status));
+        });
 			}).error(function(xhr, status, error){
 				cb(_this.response_error(status, xhr.status));
 			});
 		},
-		response_ok: function(data){
+		response_ok: function(data, data2){
 			return { 
 				ok: true,  
-				result: data 
+				result: data,
+        author_data: data2
 			}
 		},
 		response_error: function(status, error)
