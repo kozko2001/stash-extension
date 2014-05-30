@@ -16,23 +16,33 @@ var background = {
 		return !!this.timeout_token;
 	},
 	test_stash: function() {
-		background.requests.merged_pullrequest_mine(function (pullrequest) {
-			pullrequest.map( function(item) {
-				console.log(item);
-				background.requests.commit_messages(item, function (messages) {
-					console.log(messages);
-					var jira_codes = messages.map(function(msg) {
-						var regex = /\#[A-Z\-]*([0-9]*)/g,
-					    matches = regex.exec(msg);
-						return matches && "QAMIIWS-" + matches[1];
+		
+		var repo  = "mobile";
+		var project = "UZ";
+
+		background.requests.stash_repos(project, function(repos) { 
+			console.log(repos);
+
+			$.each(repos, function(index, repo) {
+				background.requests.merged_pullrequest_mine(project, "jcoscolla", repo, function (pullrequest) {
+					pullrequest.map( function(item) {
+						console.log(item);
+						background.requests.commit_messages(project, repo, item, function (messages) {
+							console.log(messages);
+							var jira_codes = messages.map(function(msg) {
+								var regex = /\#[A-Z\-]*([0-9]*)/g,
+								matches = regex.exec(msg);
+								return matches && "QAMIIWS-" + matches[1];
+							});
+							jira_codes = jira_codes.filter(function(i){ return i;});
+							console.log(jira_codes);
+						});
 					});
-					jira_codes = jira_codes.filter(function(i){ return i;});
-					console.log(jira_codes);
+					console.log(pullrequest);
 				});
 			});
-			console.log(pullrequest);
-		}, "jcoscolla");
-		
+		});
+			
 	},
 	startTimeout: function(f)
 	{
@@ -89,8 +99,8 @@ var background = {
 				cb(_this.response_error(status, xhr.status));
 			});
 		},
-		merged_pullrequest_mine: function(cb, username) {
-			var url = this.construct_url("rest/api/1.0/projects/UZ/repos/mobile/pull-requests?state=MERGED");
+		merged_pullrequest_mine: function(project, username, repo, cb) {
+			var url = this.construct_url("rest/api/1.0/projects/" + project + "/repos/" + repo + "/pull-requests?state=MERGED");
 			$.getJSON(url, {}, function (json) {
 				var data = json["values"].filter( function(item) {
 					return item["author"]["user"]["name"] == "jcoscolla";
@@ -98,13 +108,23 @@ var background = {
 				cb(data);
 			});
 		},
-		commit_messages: function(pr, cb) {
-			var url = this.construct_url("rest/api/1.0/projects/UZ/repos/mobile/pull-requests/" + pr.id + "/commits");
+		commit_messages: function(project, repo, pr, cb) {
+			var url = this.construct_url("rest/api/1.0/projects/" + project + "/repos/" + repo + "/pull-requests/" + pr.id + "/commits");
 			$.getJSON(url, {}, function (json) {
 				var messages = json["values"].map( function(item) {
 					return item.message;
 				});
 				cb(messages);
+			});
+		},
+		stash_repos: function( project, cb ) {
+			var url = this.construct_url("rest/api/1.0/projects/" + project + "/repos");
+			$.getJSON(url, {}, function (json) {
+				var repos = json["values"].map( function(item) {
+					return item["slug"];
+				});
+
+				cb(repos);
 			});
 		},
 		response_ok: function(data, data2){
