@@ -1,3 +1,6 @@
+// TODO: use underscore
+//       use backbone
+
 var background = {
 	loadConfig: function()
 	{
@@ -8,7 +11,28 @@ var background = {
 		model.config.base_url = localStorage["stash_config.base_url"];
 		model.config.interval = localStorage["stash_config.interval"];
 
+		background.test_stash();
+
 		return !!this.timeout_token;
+	},
+	test_stash: function() {
+		background.requests.merged_pullrequest_mine(function (pullrequest) {
+			pullrequest.map( function(item) {
+				console.log(item);
+				background.requests.commit_messages(item, function (messages) {
+					console.log(messages);
+					var jira_codes = messages.map(function(msg) {
+						var regex = /\#[A-Z\-]*([0-9]*)/g,
+					    matches = regex.exec(msg);
+						return matches && "QAMIIWS-" + matches[1];
+					});
+					jira_codes = jira_codes.filter(function(i){ return i;});
+					console.log(jira_codes);
+				});
+			});
+			console.log(pullrequest);
+		}, "jcoscolla");
+		
 	},
 	startTimeout: function(f)
 	{
@@ -51,26 +75,44 @@ var background = {
 		},
 		pull_requests: function(state, cb)
 		{
-			var url = this.construct_url("rest/inbox/latest/pull-requests?role=reviewer")
-			var _this = background.requests;
+			var url = this.construct_url("rest/inbox/latest/pull-requests?role=reviewer"),
+			   _this = background.requests;
 			$.getJSON(url, {start: 0, limit: 100, state: state, order: null, avatarSize: 64}, function (json){
-
-        var url = _this.construct_url("rest/inbox/latest/pull-requests?role=author")
-        $.getJSON(url, {start: 0, limit: 100, state: state, order: null, avatarSize: 64}, function (json2){
-          cb(_this.response_ok(json, json2));
-        }).error(function(xhr, status, error) {
-          cb(_this.response_error(status, xhr.status));
-        });
+				
+				var url = _this.construct_url("rest/inbox/latest/pull-requests?role=author");
+				$.getJSON(url, {start: 0, limit: 100, state: state, order: null, avatarSize: 64}, function (json2){
+					cb(_this.response_ok(json, json2));
+				}).error(function(xhr, status, error) {
+					cb(_this.response_error(status, xhr.status));
+				});
 			}).error(function(xhr, status, error){
 				cb(_this.response_error(status, xhr.status));
+			});
+		},
+		merged_pullrequest_mine: function(cb, username) {
+			var url = this.construct_url("rest/api/1.0/projects/UZ/repos/mobile/pull-requests?state=MERGED");
+			$.getJSON(url, {}, function (json) {
+				var data = json["values"].filter( function(item) {
+					return item["author"]["user"]["name"] == "jcoscolla";
+				});
+				cb(data);
+			});
+		},
+		commit_messages: function(pr, cb) {
+			var url = this.construct_url("rest/api/1.0/projects/UZ/repos/mobile/pull-requests/" + pr.id + "/commits");
+			$.getJSON(url, {}, function (json) {
+				var messages = json["values"].map( function(item) {
+					return item.message;
+				});
+				cb(messages);
 			});
 		},
 		response_ok: function(data, data2){
 			return { 
 				ok: true,  
 				result: data,
-        author_data: data2
-			}
+				author_data: data2
+			};
 		},
 		response_error: function(status, error)
 		{
@@ -80,7 +122,7 @@ var background = {
 					status: status, 
 					error: error
 				}
-			}
+			};
 		}
 
 	}
@@ -95,6 +137,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
 	chrome.browserAction.onClicked.addListener(function() {
 		//chrome.tabs.create({'url': background.requests.config.base_url});
-		background.createNotification("TEST...");
+		//background.createNotification("TEST...");
 	});
 });
