@@ -1,12 +1,12 @@
 var options = {
 	read: function(){
 		var config = {
-				base_url: localStorage["stash_config.base_url"],
+				stash_base_url: localStorage["stash_config.stash_base_url"],
 				interval: localStorage["stash_config.interval"]
 		}
 
-		if(config && config.base_url)
-			$("#base_url").val(config.base_url);
+		if(config && config.stash_base_url)
+			$("#base_url").val(config.stash_base_url);
 		if(config && config.interval)
 			$("#interval").val(config.interval);
 	},
@@ -25,14 +25,14 @@ var options = {
 			
 	},
   write: function(obj) {
-		localStorage["stash_config.base_url"] = obj.base_url;
+		localStorage["stash_config.stash_base_url"] = obj.stash_base_url;
 		localStorage["stash_config.interval"] = obj.interval;
 	},
 	save: function(e) {
 		e.preventDefault();
 
 		var conf = {
-			base_url: $("#base_url").val(),
+			stash_base_url: $("#base_url").val(),
 			interval: $("#interval").val()
 		};
 		

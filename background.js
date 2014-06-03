@@ -1,6 +1,6 @@
 // TODO: use underscore
 //       use backbone
-
+/* global: model */
 var background = {
 	loadConfig: function()
 	{
@@ -8,37 +8,45 @@ var background = {
 		if(background.timeout_token)
 			clearInterval(this.timeout_token);
 		
-		model.config.base_url = localStorage["stash_config.base_url"];
+		model.config.stash_base_url = localStorage["stash_config.stash_base_url"];
 		model.config.interval = localStorage["stash_config.interval"];
 
 		background.test_stash();
+		
+		background.requests.get_status("QAMIIWS-3885", function(item) {
+			console.log(item);
+		});
+
+		background.requests.get_transitions("QAMIIWS-3885", function(item) {
+			console.log(item);
+		});
 
 		return !!this.timeout_token;
 	},
 	test_stash: function() {
-		
-		var repo  = "mobile";
 		var project = "UZ";
-
+		
 		background.requests.stash_repos(project, function(repos) { 
 			console.log(repos);
 
 			$.each(repos, function(index, repo) {
 				background.requests.merged_pullrequest_mine(project, "jcoscolla", repo, function (pullrequest) {
-					pullrequest.map( function(item) {
+					var pp = pullrequest.map( function(item) {
 						console.log(item);
 						background.requests.commit_messages(project, repo, item, function (messages) {
 							console.log(messages);
 							var jira_codes = messages.map(function(msg) {
-								var regex = /\#[A-Z\-]*([0-9]*)/g,
+								var regex = /#([A-Z\-]+[0-9]*)/g,
 								matches = regex.exec(msg);
-								return matches && "QAMIIWS-" + matches[1];
+								return matches ? matches[1] : null;
 							});
 							jira_codes = jira_codes.filter(function(i){ return i;});
 							console.log(jira_codes);
+							return jira_codes;
 						});
 					});
 					console.log(pullrequest);
+					console.log(pp);
 				});
 			});
 		});
@@ -46,7 +54,7 @@ var background = {
 	},
 	startTimeout: function(f)
 	{
-		if(!model.config.interval || !model.config.base_url)	
+		if(!model.config.interval || !model.config.stash_base_url)	
 			background.changeIcon("CONF");
 		else
 			this.timeout_token = setInterval(f, model.config.interval* 1000);
@@ -81,7 +89,7 @@ var background = {
 	requests: {
 		construct_url: function(path)
 		{
-			return model.config.base_url + path;
+			return model.config.stash_base_url + path;
 		},
 		pull_requests: function(state, cb)
 		{
@@ -127,6 +135,28 @@ var background = {
 				cb(repos);
 			});
 		},
+		get_status: function( issue, cb ) {
+			var url = "http://uzjira.atlassian.net/rest/api/2/issue/" + issue;
+
+			$.getJSON(url, {}).done(function (json) { 
+				cb(json["fields"]["status"]["name"]);
+			}).fail(function( jqxhr, status, error) {
+				console.log("error get_status " + issue );
+			});
+		},
+		get_transitions: function( issue, cb) {
+			var url = "http://uzjira.atlassian.net/rest/api/2/issue/" + issue + "/transitions";
+			$.getJSON(url, {}).done(function (json) {
+				var transitions = $.map(json["transitions"], function( item ) {
+					return {"id": item["id"], "name": item["name"] };
+				});
+
+				cb(transitions);
+			}).fail(function( jqxhr, status, error) {
+				console.log("error get_status " + issue );
+			});
+			
+		},
 		response_ok: function(data, data2){
 			return { 
 				ok: true,  
@@ -145,7 +175,7 @@ var background = {
 			};
 		}
 
-	}
+}
 };
 document.addEventListener('DOMContentLoaded', function () {
 	background.loadConfig();
