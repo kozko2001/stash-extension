@@ -1,9 +1,22 @@
 // TODO: use underscore
 //       use backbone
 /* global: model */
+Array.prototype.flatten = function() {
+  return this.reduce(function(prev, cur) {
+    var more = [].concat(cur).some(Array.isArray);
+    return prev.concat(more ? cur.flatten() : cur);
+  },[]);
+};
+
 var background = {
 	loadConfig: function()
 	{
+		$.ajaxSetup({
+			error: function(jqXHR, textStatus, errorThrow) {
+				console.log(textStatus, errorThrow, jqXHR);
+			}
+		});
+
 		console.log("loadConfig");
 		if(background.timeout_token)
 			clearInterval(this.timeout_token);
@@ -12,44 +25,84 @@ var background = {
 		model.config.interval = localStorage["stash_config.interval"];
 
 		background.test_stash();
-		
-		background.requests.get_status("QAMIIWS-3885", function(item) {
-			console.log(item);
-		});
-
-		background.requests.get_transitions("QAMIIWS-3885", function(item) {
-			console.log(item);
-		});
 
 		return !!this.timeout_token;
 	},
 	test_stash: function() {
 		var project = "UZ";
-		
-		background.requests.stash_repos(project, function(repos) { 
-			console.log(repos);
+		var username = "jcoscolla";
 
-			$.each(repos, function(index, repo) {
-				background.requests.merged_pullrequest_mine(project, "jcoscolla", repo, function (pullrequest) {
-					var pp = pullrequest.map( function(item) {
-						console.log(item);
-						background.requests.commit_messages(project, repo, item, function (messages) {
-							console.log(messages);
-							var jira_codes = messages.map(function(msg) {
-								var regex = /#([A-Z\-]+[0-9]*)/g,
-								matches = regex.exec(msg);
-								return matches ? matches[1] : null;
-							});
-							jira_codes = jira_codes.filter(function(i){ return i;});
-							console.log(jira_codes);
-							return jira_codes;
-						});
-					});
-					console.log(pullrequest);
-					console.log(pp);
-				});
+		var get_repos = function(callback) {
+			background.requests.stash_repos(project, function(repos) { 
+				callback(null, repos);
 			});
-		});
+		};
+
+		var get_pullrequest = function (repos, callback) {
+			async.map(repos, function(repo, callback) {
+				background.requests.merged_pullrequest_mine(project, username, repo, function (pullrequests) {
+					console.log(pullrequests);
+					pullrequests = $.map(pullrequests, function(pr, i) {
+						pr["repo"] = repo;
+						return pr;
+					});
+					callback(null, pullrequests);
+				});
+			}, function(err, pullrequests) {
+				pullrequests = pullrequests.flatten();
+				callback(null, pullrequests);
+			});
+		};
+
+		var get_messages = function(pullrequests, callback) {
+			async.map(pullrequests, function(pr, callback) { 
+				background.requests.commit_messages(project, pr["repo"], pr, function(msg) {
+					pr["commit_messages"] = msg;
+					callback(null, pr);
+				});
+			},function (err, result) {
+				callback(result);
+			});
+		};
+
+		var fill_jira_codes = function(pr) {
+			
+			var codes = $.map(pr["commit_messages"], function(msg, i) { 
+				var regex = /#([A-Z\-]+[0-9]*)/g,
+					matches = regex.exec(msg);
+				return matches ? matches[1] : null;
+			});
+			
+			pr["jira"] = codes;
+			return pr;
+		};
+
+		async.waterfall([get_repos, get_pullrequest, get_messages],
+						function (result) {
+							result = $.map(result, fill_jira_codes);
+							
+							async.map(result, 
+									  function(pr, callback) { 
+										  if(pr["jira"]) {
+											  pr["jira_status"] = [];
+
+											  async.map(pr["jira"], function(jira_code, callback) {
+												  background.requests.get_status(jira_code, function(status) { 
+													  pr["jira_status"].push(status);
+													  callback(null, pr);
+												  });
+											  }, function (err, result) {
+												  callback(null, result);
+											  });
+										  }else{
+											  callback(null, null);
+										  }
+									  },
+									  function(err, result) {
+										  result = result.flatten();
+										  console.log(result);
+									  } );
+						});
 			
 	},
 	startTimeout: function(f)
@@ -131,7 +184,6 @@ var background = {
 				var repos = json["values"].map( function(item) {
 					return item["slug"];
 				});
-
 				cb(repos);
 			});
 		},
@@ -140,8 +192,8 @@ var background = {
 
 			$.getJSON(url, {}).done(function (json) { 
 				cb(json["fields"]["status"]["name"]);
-			}).fail(function( jqxhr, status, error) {
-				console.log("error get_status " + issue );
+			}).fail( function() {
+				cb(null);
 			});
 		},
 		get_transitions: function( issue, cb) {
@@ -152,8 +204,6 @@ var background = {
 				});
 
 				cb(transitions);
-			}).fail(function( jqxhr, status, error) {
-				console.log("error get_status " + issue );
 			});
 			
 		},

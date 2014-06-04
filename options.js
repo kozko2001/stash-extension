@@ -1,8 +1,8 @@
 var options = {
 	read: function(){
 		var config = {
-				stash_base_url: localStorage["stash_config.stash_base_url"],
-				interval: localStorage["stash_config.interval"]
+			stash_base_url: localStorage["stash_config.stash_base_url"],
+			interval: localStorage["stash_config.interval"]
 		}
 
 		if(config && config.stash_base_url)
@@ -22,9 +22,8 @@ var options = {
 			return {ok: false, message: "Interval must be greater than 0"}
 
 		return {ok: true};
-			
 	},
-  write: function(obj) {
+	write: function(obj) {
 		localStorage["stash_config.stash_base_url"] = obj.stash_base_url;
 		localStorage["stash_config.interval"] = obj.interval;
 	},
@@ -33,7 +32,7 @@ var options = {
 
 		var conf = {
 			stash_base_url: $("#base_url").val(),
-			interval: $("#interval").val()
+			interval: $("#interval").val()_
 		};
 		
 		var validation = options.validate(conf);
@@ -44,7 +43,7 @@ var options = {
 		}
 		else
 			alert(validation.message);
-	}	
+	}
 }
 
 $(function(){
